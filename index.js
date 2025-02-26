@@ -28,25 +28,25 @@ app.post('/scan-product', async (req, res) => {
   try {
     let product = await Product.findOne({ barcode });
 
-    // Create dummy data if not found
+    // If product not found
     if (!product) {
-      product = new Product({
-        barcode,
-        name: "Unknown Product",
-        type: "food", 
-        ingredients: ["water"], // Placeholder
-        status: "Unknown"
+      return res.json({
+        status: "Product Not Available",
+        message: "Do you want to add this product?",
+        barcode
       });
     }
 
     // Check Status
-    if (product.type === "non-food") {
-      product.status = "No Food Item";
+    if (product.type.toLowerCase() === "non-food") {
+      product.status = "Non-Food Item";
     } else if (product.ingredients.length > 0) {
       const isHaram = product.ingredients.some(ingredient =>
         haramIngredients.includes(ingredient.toLowerCase())
       );
       product.status = isHaram ? "Haram" : "Halal";
+    } else {
+      product.status = "Unknown";
     }
 
     await product.save();
@@ -63,7 +63,37 @@ app.post('/scan-product', async (req, res) => {
   }
 });
 
+// API Route: Add New Product
+app.post('/add-product', async (req, res) => {
+  const { barcode, name, type, ingredients, status } = req.body;
+
+  try {
+    const existingProduct = await Product.findOne({ barcode });
+
+    if (existingProduct) {
+      return res.status(400).json({ message: "Product already exists." });
+    }
+
+    const newProduct = new Product({
+      barcode,
+      name,
+      type,
+      ingredients,
+      status,
+    });
+
+    await newProduct.save();
+
+    res.json({ message: "Product added successfully.", product: newProduct });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
 // Start Server
 app.listen(process.env.PORT, () => {
   console.log(`🚀 API running at http://localhost:${process.env.PORT}`);
 });
+
+
